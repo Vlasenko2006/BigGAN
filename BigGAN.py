@@ -21,50 +21,103 @@ from PIL import Image
 
 
 # Function to plot generated images for colored 136x204 images
+# Function to plot generated images for colored 136x204 images
 def plot_generated_images(generator, epoch, device, examples=10):
-    noise = torch.randn(examples, 136 * 204, 1, 1).to(device)
+    # Generate noise of size (examples, noise_dim)
+    noise = torch.randn(examples, noise_dim).to(device)  # Adjusted to match noise_dim
     generated_images = generator(noise).cpu().detach()
-    generated_images = (generated_images + 1) / 2  # Rescale to [0,1]
+
+    # Rescale to [0, 1]
+    generated_images = (generated_images + 1) / 2  
+
+    # Convert to numpy and adjust dimensions for plotting
     generated_images = generated_images.permute(0, 2, 3, 1).numpy()
-    
+
+    # Plot the generated images
     plt.figure(figsize=(10, 2))
     for i in range(examples):
         plt.subplot(2, examples // 2, i + 1)
         plt.imshow(generated_images[i])
         plt.axis('off')
     plt.tight_layout()
+
+    # Save and display the images
     plt.savefig(f"gan3_generated_image_epoch_{epoch}.png")
     plt.show()
 
 
-# Define Generator for 136x204 colored images
+
+import torch
+import torch.nn as nn
+
+import torch
+import torch.nn as nn
+
 class Generator(nn.Module):
-    def __init__(self, noise_dim):
+    def __init__(self, noise_dim, nx_in=34, ny_in=51, nx_out=136, ny_out=204, hidden_dim=128, num_channels=3, kernel_size=4):
         super(Generator, self).__init__()
+        self.nx_in = nx_in  
+        self.ny_in = ny_in  
+        self.nx_out = nx_out  
+        self.ny_out = ny_out  
+        self.hidden_dim = hidden_dim  
+        self.num_channels = num_channels  
+        self.kernel_size = kernel_size  
+
+        # Fully connected layer to expand noise
         self.fc1 = nn.Sequential(
-            nn.Linear(noise_dim, 27744),  # Change 1024 → 1 * 32 * 64
+            nn.Linear(noise_dim, self.hidden_dim * self.nx_in * self.ny_in),  
             nn.ReLU()
         )
-        
+
+        # Convolutional upsampling layers
         self.conv_block = nn.Sequential(
-            nn.Unflatten(1, (1, 136, 204)),  # Match new shape
-            nn.ConvTranspose2d(1, 128, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(self.hidden_dim, self.hidden_dim // 2, kernel_size=self.kernel_size, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(self.hidden_dim // 2),
+
+            nn.ConvTranspose2d(self.hidden_dim // 2, self.hidden_dim // 4, kernel_size=self.kernel_size, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(3),
-            nn.ConvTranspose2d(3, 3, kernel_size=4, stride=2, padding=1, output_padding=(1, 0)),
+            nn.BatchNorm2d(self.hidden_dim // 4),
+
+            nn.ConvTranspose2d(self.hidden_dim // 4, self.num_channels, kernel_size=self.kernel_size, stride=2, padding=1, output_padding=1),
             nn.Tanh()
         )
 
+        # Final resizing to ensure exact (nx_out, ny_out)
+        self.upsample = nn.Upsample(size=(nx_out, ny_out), mode="bilinear", align_corners=True)
+
+#    def forward(self, x):
+#        x = self.fc1(x)
+#        x = x.view(-1, self.hidden_dim, self.nx_in, self.ny_in)  
+#        x = self.conv_block(x)
+
+        # Ensure exact output size
+#        x = self.upsample(x)
+
+#        batch_size, channels, height, width = x.shape
+#        print(f"Output shape: {x.shape}")  # Debugging output
+
+#        return x.view(batch_size, self.num_channels, height, width)  
+
     def forward(self, x):
+        print(f"Input noise shape: {x.shape}")  # Debug print
+        x = x.view(x.shape[0], -1)  # Flatten noise to (batch_size, noise_dim)
+        print(f"Shape after flattening: {x.shape}")  # Debug print
+
         x = self.fc1(x)
+        print(f"Shape after fc1: {x.shape}")  # Debug print
+
+        x = x.view(-1, self.hidden_dim, self.nx_in, self.ny_in) 
+        print(f"Shape after reshaping: {x.shape}")  # Debug print
+
         x = self.conv_block(x)
-        print("x.shape = ", x.shape)
-        return x.view(-1, 3, 136, 204)  # Output 3 channels for RGB
+        x = self.upsample(x)
+        print(f"Final output shape: {x.shape}")  # Debug print
+        return x
+
+
+
 
 
 # Define Discriminator for 136x204 colored images
@@ -159,7 +212,7 @@ def train_gan(generator, discriminator, g_optimizer, d_optimizer, criterion, dat
         print(f"Epoch {epoch+1}/{epochs} - D Loss: {epoch_loss_d/len(dataloader):.8f}, G Loss: {epoch_loss_g/len(dataloader):.4f}")
 
         # Save generated images and models
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 10 == 0:
             print(" ==== saving images ==== ")
             plot_generated_images(generator, epoch + 1, device)
             torch.save(generator.state_dict(), os.path.join(path, f"generator_epoch_{epoch+1}.pth"))
@@ -203,13 +256,13 @@ def pretrain_generator(generator, dataloader, optimizer, criterion, device, nois
 #if __name__ == "__main__":
 # Hyperparameters
 image_size = (136, 204)  # Updated image size
-noise_dim = 136 * 204
+noise_dim = 136 
 batch_size = 64
 learning_rate = 0.0002
-pretrain_epochs = 20
+pretrain_epochs = 3
 gan_epochs = 30000
 path = "./gan_model/"
-path_to_mages = "/Volumes/Work/Images_clean/"
+path_to_mages = "/gpfs/work/vlasenko/07/NN/Images_clean_small/"
 os.makedirs(path, exist_ok=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -226,10 +279,7 @@ transform = transforms.Compose([
 dataset = ImageDataset(root_dir =path_to_mages , transform=transform)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    
-    
-    
-
+      
 os.makedirs(path, exist_ok=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
