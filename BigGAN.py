@@ -20,9 +20,21 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 
+import os
+
+def check_and_create_directory(directory_path):
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
+        print(f"Directory '{directory_path}' created.")
+    else:
+        print(f"Directory '{directory_path}' already exists.")
+
+
+
 # Function to plot generated images for colored 136x204 images
-# Function to plot generated images for colored 136x204 images
-def plot_generated_images(generator, epoch, device, examples=10):
+def plot_generated_images(generator, epoch, device, examples=10, path_to_results = "./results"):
+
+    check_and_create_directory(path_to_results)
     # Generate noise of size (examples, noise_dim)
     noise = torch.randn(examples, noise_dim).to(device)  # Adjusted to match noise_dim
     generated_images = generator(noise).cpu().detach()
@@ -42,7 +54,7 @@ def plot_generated_images(generator, epoch, device, examples=10):
     plt.tight_layout()
 
     # Save and display the images
-    plt.savefig(f"gan3_generated_image_epoch_{epoch}.png")
+    plt.savefig(f"{path_to_results}/gan3_generated_image_epoch_{epoch}.png")
     plt.show()
 
 
@@ -101,19 +113,11 @@ class Generator(nn.Module):
 #        return x.view(batch_size, self.num_channels, height, width)  
 
     def forward(self, x):
-        print(f"Input noise shape: {x.shape}")  # Debug print
         x = x.view(x.shape[0], -1)  # Flatten noise to (batch_size, noise_dim)
-        print(f"Shape after flattening: {x.shape}")  # Debug print
-
         x = self.fc1(x)
-        print(f"Shape after fc1: {x.shape}")  # Debug print
-
         x = x.view(-1, self.hidden_dim, self.nx_in, self.ny_in) 
-        print(f"Shape after reshaping: {x.shape}")  # Debug print
-
         x = self.conv_block(x)
         x = self.upsample(x)
-        print(f"Final output shape: {x.shape}")  # Debug print
         return x
 
 
@@ -161,7 +165,7 @@ def smooth_labels(labels, smoothing=0.1):
 
 
 # Train the GAN
-def train_gan(generator, discriminator, g_optimizer, d_optimizer, criterion, dataloader, device, noise_dim, epochs=100, path="."):
+def train_gan(generator, discriminator, g_optimizer, d_optimizer, criterion, dataloader, device, noise_dim, epochs=100, path=".",smoothing=0.1):
     generator.train()
     discriminator.train()
 
@@ -182,7 +186,7 @@ def train_gan(generator, discriminator, g_optimizer, d_optimizer, criterion, dat
                 fake_images = generator(noise)
 
                 # Train Discriminator
-                real_labels = smooth_labels(torch.ones(batch_size, 1).to(device))
+                real_labels = smooth_labels(torch.ones(batch_size, 1).to(device),smoothing=smoothing)
                 fake_labels = torch.zeros(batch_size, 1).to(device)
 
                 d_loss_real = criterion(discriminator(noisy_real_images), real_labels)
@@ -212,7 +216,7 @@ def train_gan(generator, discriminator, g_optimizer, d_optimizer, criterion, dat
         print(f"Epoch {epoch+1}/{epochs} - D Loss: {epoch_loss_d/len(dataloader):.8f}, G Loss: {epoch_loss_g/len(dataloader):.4f}")
 
         # Save generated images and models
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1000 == 0:
             print(" ==== saving images ==== ")
             plot_generated_images(generator, epoch + 1, device)
             torch.save(generator.state_dict(), os.path.join(path, f"generator_epoch_{epoch+1}.pth"))
@@ -256,11 +260,11 @@ def pretrain_generator(generator, dataloader, optimizer, criterion, device, nois
 #if __name__ == "__main__":
 # Hyperparameters
 image_size = (136, 204)  # Updated image size
-noise_dim = 136 
-batch_size = 64
-learning_rate = 0.0002
+noise_dim = 136*5 
+batch_size = 20
+learning_rate = 0.0001 * 0.3
 pretrain_epochs = 3
-gan_epochs = 30000
+gan_epochs = 300000
 path = "./gan_model/"
 path_to_mages = "/gpfs/work/vlasenko/07/NN/Images_clean_small/"
 os.makedirs(path, exist_ok=True)
@@ -291,7 +295,7 @@ discriminator = Discriminator().to(device)
 
 
 # Optimizers and Loss
-g_pretrain_optimizer = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.999))
+g_pretrain_optimizer = optim.Adam(generator.parameters(), lr=1e-5, betas=(0.5, 0.999))
 g_optimizer = optim.Adam(generator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
 d_optimizer = optim.Adam(discriminator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
 pretrain_criterion = nn.SmoothL1Loss()
@@ -306,7 +310,7 @@ pretrain_generator(generator, dataloader, g_pretrain_optimizer, pretrain_criteri
 
 # Train the GAN
 print("Starting GAN training...")
-train_gan(generator, discriminator, g_optimizer, d_optimizer, gan_criterion, dataloader, device, noise_dim, gan_epochs, path=path)
+train_gan(generator, discriminator, g_optimizer, d_optimizer, gan_criterion, dataloader, device, noise_dim, gan_epochs, path=path, smoothing=0.05)
 
 
 

@@ -1,8 +1,8 @@
 import shutil
 import os
 
-source_dir = "source/"
-dest_dir = "dest/"
+source_dir = "../../../Images_clean/"
+dest_dir = "../../../Images_clean_small/"
 
 # Ensure the destination directory exists
 os.makedirs(dest_dir, exist_ok=True)
