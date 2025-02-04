@@ -4,9 +4,9 @@ This neural network has similar background and installation procedure as [ShortG
 
 **Images generted in the beginning of the training (100 epochs):**
 
-![beginning of training](https://github.com/Vlasenko2006/BigGAN/blob/main/Start.jpg)
+![beginning of training](https://github.com/Vlasenko2006/BigGAN/blob/main/begin.jpg)
 
 
 **Images generated in the middle of the training (40000 epochs):**
 
-![middle of training](https://github.com/Vlasenko2006/BigGAN/blob/main/midde.jpg)
+![middle of training](https://github.com/Vlasenko2006/BigGAN/blob/main/middle.jpg)
