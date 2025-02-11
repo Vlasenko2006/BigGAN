@@ -4,7 +4,7 @@ This neural network has similar background and installation procedure as [ShortG
 
 **Images generted in the beginning of the training (100 epochs):**
 
-![Training]([https://github.com/Vlasenko2006/FatGAN/blob/main/Sample%20of%20generated%20images.jpg])
+![Training](https://github.com/Vlasenko2006/FatGAN/blob/main/Sample%20of%20generated%20images.jpg)
 
 
 
