@@ -56,26 +56,27 @@ ny = 70
 first_layer_hidden_dim = 128 
 num_channels = 3 # num_channels is the number of colours in your image (apparently, it is 3 or 1)
 kernel_size = 4 # kernel_size in convolution layers
+num_repeats=3 # number of repeated conv blocks.
 
 
 # Training settings
-batch_size = 8
+batch_size = 10
 dropout = 0.2
-learning_rate = 0.0001 * 0.2 *0.125
-pretrain_epochs = 7
+learning_rate = 0.0001 * 0.2 
+pretrain_epochs = 8
 gan_epochs = 300000
 smoothing = 0.04  # rate of underconfidence for discriminator
-accumulation_steps= 8 * 2 * 4
+accumulation_steps= 8 * 2
 
 
 # IO parameters
-path = "path to the folder where you save your checkpoints"
+path = "specify a folder where you want to save checkpoints"
 path_to_saved_checkpoints = " path to the saved chcekpoints, if you do not start from scratch"
-path_to_results = "path to your results"
-path_to_images = "path to the images on which you want to train"
+path_to_results = "specify a folder where you want to save results"
+path_to_images = "../../../cats/"
 start_epoch = 0 # set to 0 if you start training from scratch, or to the epoch if you continue it from the saved checkpoint 
 start_from_scratch = True
-save_after_nepochs = 2
+save_after_nepochs = 50
 
 
 os.makedirs(path, exist_ok=True)
@@ -101,7 +102,8 @@ generator = Generator(noise_dim,
                       hidden_dim = first_layer_hidden_dim,
                       num_channels=num_channels, 
                       kernel_size = kernel_size,
-                      dropout = dropout
+                      dropout = dropout,
+                      num_repeats=num_repeats
                       ).to(device)
 
 

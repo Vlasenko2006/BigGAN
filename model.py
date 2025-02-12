@@ -12,10 +12,6 @@ import torch.nn as nn
 import torch.nn.utils.spectral_norm as spectral_norm
 
 
-
-
-
-
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels):
         super(ResidualBlock, self).__init__()
@@ -28,23 +24,22 @@ class ResidualBlock(nn.Module):
         )
 
     def forward(self, x):
-        return x + self.block(x)  # Skip connection
+        return x + self.block(x)
 
 class Generator(nn.Module):
-    def __init__(self, noise_dim, nx_in=60, ny_in=70, nx_out=136, ny_out=204, hidden_dim=128, num_channels=3, kernel_size=4,dropout = 0.0):
+    def __init__(self, noise_dim, nx_in=60, ny_in=70, nx_out=136, ny_out=204, hidden_dim=128, num_channels=3, kernel_size=4, dropout=0.3, num_repeats=2):
         super(Generator, self).__init__()
-        self.nx_in = nx_in  
-        self.ny_in = ny_in  
-        self.nx_out = nx_out  
-        self.ny_out = ny_out  
-        self.hidden_dim = hidden_dim  
-        self.num_channels = num_channels  
-        self.kernel_size = kernel_size  
+        self.nx_in = nx_in
+        self.ny_in = ny_in
+        self.nx_out = nx_out
+        self.ny_out = ny_out
+        self.hidden_dim = hidden_dim
+        self.num_channels = num_channels
+        self.kernel_size = kernel_size
 
         # Fully connected layer to expand noise
         self.fc1 = nn.Sequential(
             nn.Linear(noise_dim, self.hidden_dim * self.nx_in * self.ny_in),
-            nn.Dropout(dropout),
             nn.ReLU()
         )
 
@@ -60,8 +55,20 @@ class Generator(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout),
             ResidualBlock(self.hidden_dim // 2),
-            nn.BatchNorm2d(self.hidden_dim // 2),
+            nn.BatchNorm2d(self.hidden_dim // 2)
+        )
 
+        # Additional repeated blocks
+        for _ in range(num_repeats):
+            self.conv_block.add_module("conv_block_repeat", nn.Sequential(
+                spectral_norm(nn.ConvTranspose2d(self.hidden_dim // 2, self.hidden_dim // 2, kernel_size=3, stride=1, padding=1)),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                ResidualBlock(self.hidden_dim // 2),
+                nn.BatchNorm2d(self.hidden_dim // 2)
+            ))
+
+        self.conv_block.add_module("final_block", nn.Sequential(
             spectral_norm(nn.ConvTranspose2d(self.hidden_dim // 2, self.hidden_dim // 4, kernel_size=self.kernel_size, stride=2, padding=1, output_padding=1)),
             nn.ReLU(),
             nn.Dropout(dropout),
@@ -70,18 +77,20 @@ class Generator(nn.Module):
 
             spectral_norm(nn.ConvTranspose2d(self.hidden_dim // 4, self.num_channels, kernel_size=self.kernel_size, stride=2, padding=1, output_padding=1)),
             nn.Tanh()
-        )
+        ))
 
         # Final resizing to ensure exact (nx_out, ny_out)
         self.upsample = nn.Upsample(size=(nx_out, ny_out), mode="bilinear", align_corners=True)
 
     def forward(self, x):
-        x = x.view(x.shape[0], -1)  # Flatten noise
+        x = x.view(x.shape[0], -1)
         x = self.fc1(x)
-        x = x.view(-1, self.hidden_dim, self.nx_in, self.ny_in) 
+        x = x.view(-1, self.hidden_dim, self.nx_in, self.ny_in)
         x = self.conv_block(x)
         x = self.upsample(x)
         return x
+
+
 
 class Discriminator(nn.Module):
     def __init__(self, num_channels=3, image_size=(136, 204)):
