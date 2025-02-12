@@ -9,8 +9,9 @@ The FAsT Generative Adversarial neural Network (FATGAN) has a similar background
 ![Training](https://github.com/Vlasenko2006/FatGAN/blob/main/Sample%20of%20generated%20images.jpg)
 
 
-# GAN Model for Coloured Image Generation  
-
-This repository contains a **Generative Adversarial Network (GAN)** implementation designed to generate **136x204 color images** using **PyTorch**. It leverages **spectral normalization**, **residual blocks**, and **label smoothing** to enhance stability and image quality.  
-
--
+# Environment 
+This repository contains `fat_env.yaml` file with all packages you need. To install them just run in your `bash` terminal the following command:  
+```
+conda env create -f fat_env.yaml
+conda activate fat_env
+```
